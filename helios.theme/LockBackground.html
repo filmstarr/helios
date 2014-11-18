@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>helios</title>
+<script type="text/javascript" src="scripts\paper-full.min.js"></script>
+<script type="text/paperscript" canvas="canvas">
+
+	//Debugging
+	var debug = false;
+
+  //Define plot variables
+  var sunRadius = 10;
+  var xBuffer = 0;
+  var yBuffer = 1 + sunRadius;
+	var ySize = 200;
+	var xSize = ((window.innerWidth > 0) ? window.innerWidth : screen.width) - (2 * xBuffer);
+	var lineColour = "#000"
+
+  //Draw wave
+  var pathPoints = 360;
+	var wave = new Path();
+	for (var i = 0; i <= pathPoints; i++) {
+		var point = new Point(xBuffer + ( xSize * i / pathPoints), yBuffer + altitude(360 * (i / pathPoints)));
+		wave.add(point);
+	}
+  wave.strokeColor = lineColour;
+  wave.smooth();
+  wave.simplify();
+
+  //Draw horizon
+  var from = new Point(xBuffer, 0);
+  var to = new Point(xBuffer + xSize, 0);
+  var horizon = new Path.Line(from, to);
+  horizon.strokeColor = lineColour;
+  sightHorizon();
+
+  //Draw the sun
+  var helios = new Path.Circle(0,0,sunRadius);
+  helios.strokeColor = lineColour;
+  helios.fillColor = new Color(1, 1, 1);
+ 	sightSun();
+
+
+  //Parameters
+  function altitude(degreeTime) {
+    var fractionalAltitude = (1 + Math.sin((degreeTime + 90) * Math.PI / 180)) / 2;
+    return fractionalAltitude * ySize;
+  }
+
+  function fractionalTime() {
+  	var date = new Date();
+  	if (debug) {
+			return date.getSeconds() / 60;
+  	}
+  	var seconds = date.getSeconds() + (60 * date.getMinutes()) + (60 * 60 * date.getHours());
+  	var totalSecondsInDay = 60 * 60 * 24;
+		return seconds / totalSecondsInDay;  	
+  }
+
+
+  //Update items
+  function sightHorizon() {
+    var yHorizon = yBuffer + (ySize /2);
+    var segments = horizon.segments;
+    for (var i = 0; i < segments.length; i++) {
+      var segment = segments[i];
+      segment.point.y = yHorizon;
+    }
+  }
+
+  function sightSun() {
+    var fraction = fractionalTime();
+    helios.position.x = xBuffer + (xSize * fraction);
+    helios.position.y = yBuffer + altitude(360 * fraction);
+  }
+
+
+  //Animate
+  var throttleDate = new Date();
+  function onFrame(event) {
+    var date = new Date();
+  	if (date - throttleDate >= 1000) {
+      sightSun();
+      throttleDate = date;
+    }
+  }
+
+</script>
+</head>
+
+<body style="margin: 0; padding-top: 200px;">
+	<canvas id="canvas" resize></canvas>
+</body>
+
+</html>
