@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>helios</title>
+<script type="text/javascript" src="scripts\paper-full.min.js"></script>
+<script type="text/paperscript" canvas="canvas">
+	//Debugging
+	var debug = true;
+
+  //Define our plot
+  var sunDiameter = 10;
+	var plotBuffer = sunDiameter + 1;
+	var ySize = 200;
+	var xSize = 200;
+
+  //Draw wave path
+  var pathPoints = 360;
+	var path = new Path();
+	for (var i = 0; i <= pathPoints; i++) {
+		var point = new Point(plotBuffer + ( xSize * i / pathPoints), plotBuffer + altitude(360 * (i / pathPoints)));
+		path.add(point);
+	}
+  path.strokeColor = "#000";
+  path.smooth();
+  
+  //Draw the sun
+  var circle = new Path.Circle(0,0,sunDiameter);
+  circle.strokeColor = "#000";
+  circle.fillColor = new Color(1, 1, 1);
+ 	sightSun(circle);
+
+  //Functions
+  function altitude(degreeTime) {
+  	var fractionalAltitude = (1 + Math.sin((degreeTime + 90) * Math.PI / 180)) / 2;
+  	return fractionalAltitude * ySize;
+  }
+
+  function sightSun(circle) {
+  	var fraction = fractionalTime();
+    circle.position.x = plotBuffer + (xSize * fraction);
+    circle.position.y = plotBuffer + altitude(360 * fraction);
+  }
+
+  function fractionalTime() {
+  	var date = new Date();
+  	if (debug) {
+			return date.getSeconds() / 60;
+  	}
+  	var seconds = date.getSeconds() + (60 * date.getMinutes()) + (60 * 60 * date.getHours());
+  	var totalSecondsInDay = 60 * 60 * 24;
+		return seconds / totalSecondsInDay;  	
+  }
+
+  function onFrame(event) {
+  	sightSun(circle);
+  }
+</script>
+</head>
+
+<body>
+	<canvas id="canvas" resize></canvas>
+</body>
+
+</html>
