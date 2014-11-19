@@ -4,12 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>helios</title>
+<script type="text/javascript" src="scripts\jquery-2.1.1.min.js"></script>
+<script type="text/javascript" src="scripts\jquery-ui.min.js"></script>
 <script type="text/javascript" src="scripts\paper-full.min.js"></script>
+<script type="text/javascript">
+  $(document).ready(function() {
+    $("#canvas").fadeIn(1500, "easeInOutQuart");
+  });
+</script>
 <script type="text/paperscript" canvas="canvas">
 
 
 	//Debugging
-	var debug = true;
+	var debug = false;
 
 
   //Define plot variables
@@ -117,7 +124,7 @@
 </head>
 
 <body style="margin: 0; padding-top: 200px;">
-	<canvas id="canvas" resize></canvas>
+	<canvas id="canvas" resize style="display: none;"></canvas>
 </body>
 
 </html>
