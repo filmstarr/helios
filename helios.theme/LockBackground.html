@@ -7,10 +7,12 @@
 <script type="text/javascript" src="scripts\jquery-2.1.1.min.js"></script>
 <script type="text/javascript" src="scripts\jquery-ui.min.js"></script>
 <script type="text/javascript" src="scripts\paper-full.min.js"></script>
+<script type="text/javascript" src="scripts\suncalc.js"></script>
 <script type="text/javascript">
   $(document).ready(function() {
     $("#canvas").fadeIn(1500, "easeInOutQuart");
   });
+
 </script>
 <script type="text/paperscript" canvas="canvas">
 
@@ -34,22 +36,17 @@
   }
 
 
-  //Retrieve sunrise, sunset and midday times 
-  var sunrise = new Date(2000, 1, 1, 5, 0, 0, 0);
-  var sunset = new Date(2000, 1, 1, 22, 0, 0, 0);
-  var degreeMidday = fractionalMidday() * 360;
+  //Initialise some variables
+  var sunrise = new Date(1970, 1, 1, 6, 0, 0, 0);
+  var sunset = new Date(1970, 1, 1, 18, 0, 0, 0);
+  var degreeMidday = 180;
 
 
-  //Draw wave - ToDo: recalculate wave perioducally
+  //Draw sun's path
   var pathPoints = 360;
-	var wave = new Path();
-	for (var i = 0; i <= pathPoints; i++) {
-		var point = new Point(xBuffer + ( xSize * i / pathPoints), yBuffer + altitude(i / pathPoints));
-		wave.add(point);
-	}
-  wave.strokeColor = lineColour;
-  wave.smooth();
-  wave.simplify();
+	var sunPath = new Path();
+  sunPath.strokeColor = lineColour;
+  sightSunPath();
 
   //Draw horizon
   var from = new Point(xBuffer, 0);
@@ -65,7 +62,7 @@
  	sightSun();
 
 
-  //Parameters
+  //Functions
   function altitude(fractionalTime) {
     var degreeTime = 360 * fractionalTime;
     var fractionalAltitude = (1 + Math.cos((degreeTime + 180 - degreeMidday) * Math.PI / 180)) / 2;
@@ -86,11 +83,54 @@
     return date.getSeconds() + (60 * date.getMinutes()) + (60 * 60 * date.getHours());
   }
 
+  function updateSunPathAndHorizon() {
+    //Request location data
+    if (debug) {
+      console.log('Requesting location...');
+    }
+    $.ajax({ 
+      url: 'http://freegeoip.net/json/', 
+      type: 'POST', 
+      dataType: 'jsonp',
+      success: function(location) {
+        if (debug) {
+          console.log('latitude: ' + location.latitude);
+          console.log('longitude: ' + location.longitude);
+        }
+        setSunriseSunset(location.latitude, location.longitude);
+
+        //Replot the sun's path and the horizon
+        sightSunPath();
+        sightHorizon();
+      }
+    });
+  }
+
+  function setSunriseSunset (latitude, longitude) {
+    var times = SunCalc.getTimes(new Date(), latitude, longitude);
+    if (debug) {
+      console.log('Sunrise: ' + times.sunrise);
+      console.log('Sunset: ' + times.sunset);
+    }
+    sunrise = times.sunrise;
+    sunset = times.sunset;
+    degreeMidday = fractionalMidday() * 360;
+  }
+
 
   //Update items
+  function sightSunPath() {
+    sunPath.removeSegments();
+    for (var i = 0; i <= pathPoints; i++) {
+      var point = new Point(xBuffer + ( xSize * i / pathPoints), yBuffer + altitude(i / pathPoints));
+      sunPath.add(point);
+    }
+    sunPath.smooth();
+    sunPath.simplify();
+  }
+
   function sightHorizon() {
     var horizonAltitude = altitude(fractionalTime(sunrise));
-
     var yHorizon = yBuffer + horizonAltitude;
     var segments = horizon.segments;
     for (var i = 0; i < segments.length; i++) {
@@ -111,12 +151,22 @@
 
 
   //Animate
-  var throttleDate = new Date();
+  var previousSunRequestTime = new Date(1970, 1, 1, 6, 0, 0, 0);
+  var previousRequestTime = new Date(1970, 1, 1, 6, 0, 0, 0);
   function onFrame(event) {
-    var date = new Date();
-  	if (date - throttleDate >= 1000 / framesPerSecond) {
+    var requestTime = new Date();
+
+    //Update sun path and horizon once every eight hours
+    if (requestTime - previousRequestTime >= 1000 * 60 * 60 * 8) {
+      //ToDo: Animate moving of horizon and path
+      updateSunPathAndHorizon();
+      previousRequestTime = requestTime;
+    }
+
+    //Update sun position
+    if (requestTime - previousSunRequestTime >= 1000 / framesPerSecond) {
       sightSun();
-      throttleDate = date;
+      previousSunRequestTime = requestTime;
     }
   }
 
