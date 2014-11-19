@@ -18,7 +18,7 @@
 
 
 	//Debugging
-	var debug = false;
+	var debug = true;
 
 
   //Define plot variables
@@ -49,20 +49,17 @@
   var pathPoints = 360;
 	var sunPath = new Path();
   sunPath.strokeColor = lineColour;
-  sightSunPath();
 
   //Draw horizon
   var from = new Point(xBuffer, 0);
   var to = new Point(xBuffer + xSize, 0);
   var horizon = new Path.Line(from, to);
   horizon.strokeColor = lineColour;
-  sightHorizon();
 
   //Draw the sun
   var helios = new Path.Circle(0,0,sunRadius);
   helios.strokeColor = lineColour;
   helios.fillColor = lineColour;
- 	sightSun();
 
 
   //Functions
