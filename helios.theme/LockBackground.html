@@ -39,7 +39,10 @@
   //Initialise some variables
   var sunrise = new Date(1970, 1, 1, 6, 0, 0, 0);
   var sunset = new Date(1970, 1, 1, 18, 0, 0, 0);
-  var degreeMidday = 180;
+  var degreeMidday = calculateDegreeMidday(sunrise, sunset);
+  var updatedSunrise = new Date(sunrise.getTime());
+  var updatedSunset = new Date(sunset.getTime());
+  var updatedDegreeMidday = degreeMidday;
 
 
   //Draw sun's path
@@ -74,16 +77,16 @@
 		return seconds / secondsInDay;
   }
 
-  function fractionalMidday() {
-    var midday = (secondsSinceStartOfDay(sunset) + secondsSinceStartOfDay(sunrise)) / 2;
-    return midday / secondsInDay;
+  function calculateDegreeMidday(newSunrise, newSunset) {
+    var midday = (secondsSinceStartOfDay(newSunrise) + secondsSinceStartOfDay(newSunset)) / 2;
+    return 360 * midday / secondsInDay;
   }
 
   function secondsSinceStartOfDay(date) {
     return date.getSeconds() + (60 * date.getMinutes()) + (60 * 60 * date.getHours());
   }
 
-  function updateSunPathAndHorizon() {
+  function requestSunriseSunsetTimes() {
     //Request location data
     if (debug) {
       console.log('Requesting location...');
@@ -97,11 +100,8 @@
           console.log('latitude: ' + location.latitude);
           console.log('longitude: ' + location.longitude);
         }
+        //Calculate sunrise and sunset times
         setSunriseSunset(location.latitude, location.longitude);
-
-        //Replot the sun's path and the horizon
-        sightSunPath();
-        sightHorizon();
       }
     });
   }
@@ -112,9 +112,11 @@
       console.log('Sunrise: ' + times.sunrise);
       console.log('Sunset: ' + times.sunset);
     }
-    sunrise = times.sunrise;
-    sunset = times.sunset;
-    degreeMidday = fractionalMidday() * 360;
+    updatedSunrise = times.sunrise;
+    updatedSunset = times.sunset;
+    updatedDegreeMidday = calculateDegreeMidday(updatedSunrise, updatedSunset);
+    sunrise = new Date(updatedSunrise.getFullYear(), updatedSunrise.getMonth(), updatedSunrise.getDate(), sunrise.getHours(), sunrise.getMinutes(), sunrise.getSeconds(), sunrise.getMilliseconds());
+    sunset = new Date(updatedSunset.getFullYear(), updatedSunset.getMonth(), updatedSunset.getDate(), sunset.getHours(), sunset.getMinutes(), sunset.getSeconds(), sunset.getMilliseconds());
   }
 
 
@@ -151,16 +153,45 @@
 
 
   //Animate
-  var previousSunRequestTime = new Date(1970, 1, 1, 6, 0, 0, 0);
-  var previousRequestTime = new Date(1970, 1, 1, 6, 0, 0, 0);
+  var previousSunRequestTime = new Date(1970, 1, 1, 0, 0, 0, 0);
+  var previousRequestTime = new Date(1970, 1, 1, 0, 0, 0, 0);
   function onFrame(event) {
     var requestTime = new Date();
 
     //Update sun path and horizon once every eight hours
     if (requestTime - previousRequestTime >= 1000 * 60 * 60 * 8) {
-      //ToDo: Animate moving of horizon and path
-      updateSunPathAndHorizon();
+      requestSunriseSunsetTimes();
       previousRequestTime = requestTime;
+    }
+
+    //Animate moving of horizon and path if we have retrieved a new value
+    if (updatedSunrise != sunrise) {
+      var minutesStep = 1;
+      var minutesToCorrectSunrise = Math.abs(updatedSunrise - sunrise) / (1000 * 60);
+
+      if (minutesToCorrectSunrise < Math.abs(minutesStep * 2)) {
+        sunrise = updatedSunrise;
+        sunset = updatedSunset;
+        degreeMidday = updatedDegreeMidday;
+        sightSunPath();
+        sightHorizon();
+      } else {
+        var addMinutesToSunrise = updatedSunrise > sunrise ? minutesStep : -minutesStep;
+
+        sunrise.setMinutes(sunrise.getMinutes() + addMinutesToSunrise);
+        sunset.setMinutes(sunset.getMinutes() - addMinutesToSunrise);
+
+        degreeMidday = degreeMidday + (updatedDegreeMidday - degreeMidday) / (minutesToCorrectSunrise / minutesStep);
+
+        sightSunPath();
+        sightHorizon();
+        previousRequestTime = requestTime;
+      }
+
+      if (debug) {
+        console.log('Moving sunrise: ' + sunrise);
+        console.log('Moving sunset: ' + sunset);
+      }
     }
 
     //Update sun position
