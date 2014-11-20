@@ -17,7 +17,7 @@
 <script type="text/paperscript" canvas="canvas">
 
 	//Debugging
-	var debug = true;
+	var debug = false;
 
   //Define parameters
   var secondsInDay = 60 * 60 * 24;
@@ -30,7 +30,6 @@
   var lineColour = 'white';
   if (debug) {
     framesPerSecond = 600;
-    lineColour = 'black';
   }
 
   //Initialise some variables
@@ -163,7 +162,7 @@
   }
 
 
-  //Animate
+  //Events
   var previousSunRequestTime = new Date(1970, 1, 1, 0, 0, 0, 0);
   var previousLocationRequestTime = new Date(1970, 1, 1, 0, 0, 0, 0);
   var previousSunriseSunsetRequestDate = new Date(1970, 1, 1, 0, 0, 0, 0);
@@ -189,6 +188,12 @@
       sightSun();
       previousSunRequestTime = requestTime;
     }
+  }
+
+  helios.onClick = function(event) {
+    debug = !debug;
+    framesPerSecond = debug ? 600 : 1;
+    sightSun();
   }
 
 </script>
