@@ -40,9 +40,7 @@
   //Events
   var previousSunriseSunsetRequestDate = new Date(1970, 1, 1, 0, 0, 0, 0);
   function onFrame(event) {
-    var requestTime = new Date();
 
-    //Update location once a day or if we have no data try each hour
     location.UpdateIfRequired(UpdateObjects);
 
     //Update sunrise and sunset when the date changes
@@ -81,6 +79,7 @@
 
     this.UpdateIfRequired = function(callback) {
       var date = new Date();
+      //Update location once a day or if we have no data try each hour
       var requiresUpdate = (!localStorage.locationAsOf || date - localStorage.locationAsOf >= 1000 * secondsInDay) && date - previousRequest >= 1000 * 60 * 60;
       previousRequest = date;
 
