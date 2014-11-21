@@ -16,191 +16,222 @@
 </script>
 <script type="text/paperscript" canvas="canvas">
 
-	//Debugging
-	var debug = false;
-
   //Define parameters
-  var secondsInDay = 60 * 60 * 24;
   var sunRadius = 10;
   var xBuffer = 0;
-  var yBuffer = 1 + sunRadius;
-	var ySize = 200;
-	var xSize = ((window.innerWidth > 0) ? window.innerWidth : screen.width) - (2 * xBuffer);
-  var framesPerSecond = 1;
+  var yBuffer = 240 + 1 + sunRadius;
+  var xSize = ((window.innerWidth > 0) ? window.innerWidth : screen.width) - (2 * xBuffer);
+  var ySize = 200;
   var lineColour = 'white';
-  if (debug) {
-    framesPerSecond = 600;
-  }
 
-  //Initialise some variables
-  var latitude = localStorage.latitude ? localStorage.latitude : 0;
-  var longitude = localStorage.longitude ? localStorage.longitude : 0;
-  var sunrise;
-  var sunset;
-  var degreeMidday;
-
-  if (debug) {
-    console.log('Latitude: ' + latitude);
-    console.log('Longitude: ' + longitude);
-  }
-
-  //Create sun's path
-  var pathPoints = 360;
-	var sunPath = new Path();
-  sunPath.strokeColor = lineColour;
-
-  //Create horizon
-  var horizon = new Path.Line();
-  horizon.strokeColor = lineColour;
-
-  //Create sun
-  var helios = new Path.Circle(-(sunRadius + 1), 0, sunRadius);
-  helios.strokeColor = lineColour;
-  helios.fillColor = lineColour;
+  //Create objects
+  var location = new Location();
+  var sunTimes = new SunTimes(location);
+  var altimeter = new Altimeter(sunTimes);
+  var heliosPath = new HeliosPath(altimeter, lineColour, xSize, yBuffer);
+  var horizon = new Horizon(altimeter, lineColour, xSize, yBuffer);
+  var helios = new Helios(altimeter, lineColour, sunRadius, xSize, yBuffer);
 
 
-  //Functions
-  function altitude(fractionalTime) {
-    var degreeTime = 360 * fractionalTime;
-    var fractionalAltitude = (1 + Math.cos((degreeTime + 180 - degreeMidday) * Math.PI / 180)) / 2;
-    return fractionalAltitude * ySize;
-  }
-
-  function fractionalTime(date) {
-  	var seconds = secondsSinceStartOfDay(date);
-		return seconds / secondsInDay;
-  }
-
-  function calculateDegreeMidday() {
-    var midday = (secondsSinceStartOfDay(sunrise) + secondsSinceStartOfDay(sunset)) / 2;
-    return 360 * midday / secondsInDay;
-  }
-
-  function secondsSinceStartOfDay(date) {
-    return date.getSeconds() + (60 * date.getMinutes()) + (60 * 60 * date.getHours());
-  }
-
-  function updateLocation() {
-    //Request location data
-    if (debug) {
-      console.log('Requesting location...');
-    }
-
-    $.ajax({ 
-      url: 'http://freegeoip.net/json/', 
-      type: 'POST', 
-      dataType: 'jsonp',
-      success: function(location) {
-        if (debug) {
-          console.log('Latitude: ' + location.latitude);
-          console.log('Longitude: ' + location.longitude);
-        }
-        latitude = location.latitude;
-        longitude = location.longitude;
-        localStorage.latitude = latitude;
-        localStorage.longitude = longitude;
-        localStorage.locationAsOf = new Date();
-
-        //Update sunrise and sunset times
-        updateSunriseSunset();
-      }
-    });
-  }
-
-  function updateSunriseSunset() {
-    if (debug) {
-      console.log('Updating sunrise and sunset');
-    }
-
-    var times = SunCalc.getTimes(new Date(), latitude, longitude);
-    if (debug) {
-      console.log('Sunrise: ' + times.sunrise);
-      console.log('Sunset: ' + times.sunset);
-    }
-
-    if (sunrise != times.sunrise || sunset != times.sunset) {
-      sunrise = times.sunrise;
-      sunset = times.sunset;
-      degreeMidday = calculateDegreeMidday();
-      sightSunPath();
-      sightHorizon();
-    }
-  }
 
 
-  //Update items
-  function sightSunPath() {
-    sunPath.removeSegments();
-    for (var i = 0; i <= pathPoints; i++) {
-      var point = new Point(xBuffer + ( xSize * i / pathPoints), yBuffer + altitude(i / pathPoints));
-      sunPath.add(point);
-    }
-    sunPath.smooth();
-    sunPath.simplify();
-  }
-
-  function sightHorizon() {
-    horizon.removeSegments();
-    var horizonAltitude = altitude(fractionalTime(sunrise));
-    var yHorizon = yBuffer + horizonAltitude;
-
-    var from = new Point(xBuffer, yHorizon);
-    var to = new Point(xBuffer + xSize, yHorizon);
-
-    horizon.add(from);
-    horizon.add(to);
-  }
-
-  function sightSun() {
-    var date = new Date();
-    var timeFraction = fractionalTime(date);
-    if (debug) {
-      timeFraction = (date.getMilliseconds() + ((date.getSeconds() % 10) * 1000)) / (1000 * 10);
-    }
-    helios.position.x = xBuffer + (xSize * timeFraction);
-    helios.position.y = yBuffer + altitude(timeFraction);
-  }
 
 
   //Events
-  var previousSunRequestTime = new Date(1970, 1, 1, 0, 0, 0, 0);
-  var previousLocationRequestTime = new Date(1970, 1, 1, 0, 0, 0, 0);
   var previousSunriseSunsetRequestDate = new Date(1970, 1, 1, 0, 0, 0, 0);
   function onFrame(event) {
     var requestTime = new Date();
 
     //Update location once a day or if we have no data try each hour
-    if ((!localStorage.locationAsOf || requestTime - localStorage.locationAsOf >= 1000 * secondsInDay)
-        && requestTime - previousLocationRequestTime >= 1000 * 60 * 60) {
-      updateLocation();
-      previousLocationRequestTime = requestTime;
-    }
+    location.UpdateIfRequired(UpdateObjects);
 
     //Update sunrise and sunset when the date changes
     var date = (new Date()).setHours(0,0,0,0);
     if (date > previousSunriseSunsetRequestDate) {
-      updateSunriseSunset()
+      sunTimes = new SunTimes(location);
+      heliosPath.Sight();
+      horizon.Sight(sunTimes.Sunrise);
       previousSunriseSunsetRequestDate = date;
     }
 
-    //Update sun position
-    if (requestTime - previousSunRequestTime >= 1000 / framesPerSecond) {
-      sightSun();
-      previousSunRequestTime = requestTime;
+    helios.Sight(horizon.HorizonYCoordinate);
+  }
+
+  function UpdateObjects() {
+    sunTimes = new SunTimes(location);
+    heliosPath.Sight();
+    horizon.Sight(sunTimes.Sunrise);
+  }
+
+
+
+
+
+
+
+
+
+
+  //Objects
+  function Location() {
+    var secondsInDay = 60 * 60 * 24;
+    var previousRequest = new Date(1970, 1, 1, 0, 0, 0, 0);
+    this.Latitude = localStorage.latitude ? localStorage.latitude : 0;
+    this.Longitude = localStorage.longitude ? localStorage.longitude : 0;
+
+    this.UpdateIfRequired = function(callback) {
+      var date = new Date();
+      var requiresUpdate = (!localStorage.locationAsOf || date - localStorage.locationAsOf >= 1000 * secondsInDay) && date - previousRequest >= 1000 * 60 * 60;
+      previousRequest = date;
+
+      if (requiresUpdate){
+        console.log('Requesting location...');
+        $.ajax({
+          url: 'http://freegeoip.net/json/', 
+          type: 'POST', 
+          dataType: 'jsonp',
+          success: function(location) {
+            this.Latitude = location.latitude;
+            this.Longitude = location.longitude;
+            localStorage.latitude = this.Latitude;
+            localStorage.longitude = this.Longitude;
+            localStorage.locationAsOf = new Date();
+            callback();
+            console.log('Location retrieved (latitude: ' + this.Latitude + ', longitude: ' + this.Longitude + ').');
+          }
+        });
+      }
     }
   }
 
-  helios.onClick = function(event) {
-    debug = !debug;
-    framesPerSecond = debug ? 600 : 1;
-    sightSun();
+  function SunTimes(location) {
+    var secondsInDay = 60 * 60 * 24;
+    var times = SunCalc.getTimes(new Date(), location.Latitude, location.Longitude);
+    this.Sunrise = times.sunrise;
+    this.Sunset = times.sunset;
+    var midday = (secondsSinceStartOfDay(this.Sunrise) + secondsSinceStartOfDay(this.Sunset)) / 2;
+    this.DegreeMidday = 360 * midday / secondsInDay;
+
+    function secondsSinceStartOfDay(date) {
+      return date.getSeconds() + (60 * date.getMinutes()) + (60 * 60 * date.getHours());
+    }
+  }
+
+  function Altimeter(sunTimes) {
+    this.FractionalTime = fractionalTime;
+    this.Altitude = altitude;
+
+    function fractionalTime(date) {
+      var secondsInDay = 60 * 60 * 24;
+      var seconds = secondsSinceStartOfDay(date);
+      return seconds / secondsInDay;
+    }
+
+    function secondsSinceStartOfDay(date) {
+      return date.getSeconds() + (60 * date.getMinutes()) + (60 * 60 * date.getHours());
+    }
+
+    function altitude(fractionalTime) {
+      var degreeTime = 360 * fractionalTime;
+      var fractionalAltitude = (1 + Math.cos((degreeTime + 180 - sunTimes.DegreeMidday) * Math.PI / 180)) / 2;
+      return fractionalAltitude * ySize;
+    }
+  }
+
+  function HeliosPath(altimeter, colour, xSize, yBuffer) {
+    var pathPoints = 360;
+    var heliosPath = new Path();
+    heliosPath.strokeColor = colour;
+
+    //Update items
+    function sight() {
+      heliosPath.removeSegments();
+      for (var i = 0; i <= pathPoints; i++) {
+        var point = new Point(xBuffer + ( xSize * i / pathPoints), yBuffer + altimeter.Altitude(i / pathPoints));
+        heliosPath.add(point);
+      }
+      heliosPath.smooth();
+      heliosPath.simplify();
+    }
+    this.Sight = sight;
+  }
+
+  function Horizon(altimeter, colour, xSize, yBuffer) {
+    this.HorizonYCoordinate = 0;
+
+    var horizon = new Path.Line();
+    horizon.strokeColor = colour;
+
+    function sight(sunrise) {
+      horizon.removeSegments();
+      var horizonAltitude = altimeter.Altitude(altimeter.FractionalTime(sunrise));
+      this.HorizonYCoordinate = yBuffer + horizonAltitude;
+
+      var from = new Point(xBuffer, this.HorizonYCoordinate);
+      var to = new Point(xBuffer + xSize, this.HorizonYCoordinate);
+
+      horizon.add(from);
+      horizon.add(to);
+    }
+    this.Sight = sight;
+  }
+
+  function Helios(altimeter, colour, radius, xSize, yBuffer) {
+    var glow = 100;
+    var framesPerSecond = 1;
+    var horizonYCoordinate = 0;
+    var previousRequest = new Date(1970, 1, 1, 0, 0, 0, 0);
+
+    var heliosCircle = new Path.Circle(-(glow + 1), 0, glow);
+    heliosCircle.fillColor = {
+        gradient: {
+            stops: [['white', radius/glow], ['yellow', radius / glow], [new RgbColor(1, 1, 1, 0.2), 0.5], [new RgbColor(1, 1, 1, 0.0), 1]],
+            radial: true
+        },
+        origin: heliosCircle.position,
+        destination: heliosCircle.bounds.rightCenter
+    };
+    var heliosOutline = new Path.Circle(-(radius + 1), 0, radius);
+    heliosOutline.strokeColor = 'white';
+
+    function sight(newHorizon) {
+      var date = new Date();
+      if (date - previousRequest >= 1000 / framesPerSecond) {
+        var timeFraction = altimeter.FractionalTime(date);
+        //Run the animation faster
+        if (framesPerSecond != 1) {
+          timeFraction = (date.getMilliseconds() + ((date.getSeconds() % 10) * 1000)) / (1000 * 10);
+        }
+        heliosCircle.position.x = heliosOutline.position.x = xBuffer + (xSize * timeFraction);
+        heliosCircle.position.y = heliosOutline.position.y = yBuffer + altimeter.Altitude(timeFraction);
+
+        if (newHorizon != horizonYCoordinate || !horizonYCoordinate) {
+          horizonYCoordinate = newHorizon;
+          clip(horizonYCoordinate);
+        }
+        previousRequest = date;
+      }
+    }
+    this.Sight = sight;
+
+    function clip(horizonYCoordinate) {
+      var from = new Point(0, 0);
+      var to = new Point(xSize, horizonYCoordinate);
+      var aboveHorizon = new Path.Rectangle(from, to);
+      var group = new Group(aboveHorizon,heliosCircle);
+      group.clipped = true;
+    }
+
+    heliosCircle.onClick = function(event) {
+      framesPerSecond = framesPerSecond == 1 ? 600 : 1;
+    }
   }
 
 </script>
 </head>
 
-<body style="margin: 0; padding-top: 200px;">
-	<canvas id="canvas" resize style="display: none;"></canvas>
+<body style="margin: 0;">
+	<canvas id="canvas" resize style="display: none; background-color: lightsteelblue;"></canvas>
 </body>
 
 </html>
