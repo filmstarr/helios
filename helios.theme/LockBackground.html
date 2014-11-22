@@ -198,6 +198,7 @@
     var horizonYCoordinate = 0;
     var previousRequest = new Date(1970, 1, 1, 0, 0, 0, 0);
 
+    //Our main helios circle
     var heliosCircle = new Path.Circle(-(glow + 1), 0, glow);
     heliosCircle.fillColor = {
         gradient: {
@@ -207,8 +208,15 @@
         origin: heliosCircle.position,
         destination: heliosCircle.bounds.rightCenter
     };
+
+    //The outline for use when helios is below the horizon
     var heliosOutline = new Path.Circle(-(radius + 1), 0, radius);
     heliosOutline.strokeColor = 'white';
+
+    //Objects for use when helios is exiting the screen
+    var wrapCircle = heliosCircle.clone();
+    var wrapOutline = heliosOutline.clone();
+
     update(horizon);
 
     function update(newHorizon) {
@@ -227,6 +235,7 @@
           clip(horizonYCoordinate);
         }
         sunset();
+        wrapHelios();
         previousRequest = date;
       }
     }
@@ -235,7 +244,7 @@
       var from = new Point(0, 0);
       var to = new Point(xSize, horizonYCoordinate);
       var aboveHorizon = new Path.Rectangle(from, to);
-      var group = new Group(aboveHorizon,heliosCircle);
+      var group = new Group(aboveHorizon,heliosCircle,wrapCircle);
       group.clipped = true;
     }
 
@@ -253,6 +262,21 @@
       
       //Set
       heliosCircle.fillColor.gradient.stops[1].color = new Color(1, green, 0);
+    }
+
+    //Use second object to create wrapping effect
+    function wrapHelios() {
+      if (heliosCircle.position.x + glow > xBuffer + xSize) {
+        wrapCircle.position.x = wrapOutline.position.x = heliosCircle.position.x - (xBuffer + xSize);
+        wrapCircle.position.y = wrapOutline.position.y = heliosCircle.position.y;
+        wrapCircle.fillColor.gradient.stops[1].color = heliosCircle.fillColor.gradient.stops[1].color;
+      } else if (heliosCircle.position.x < glow) {
+        wrapCircle.position.x = wrapOutline.position.x = heliosCircle.position.x + (xBuffer + xSize);
+        wrapCircle.position.y = wrapOutline.position.y = heliosCircle.position.y;
+        wrapCircle.fillColor.gradient.stops[1].color = heliosCircle.fillColor.gradient.stops[1].color;
+      } else {
+        wrapCircle.position.x = wrapOutline.position.x = -(glow + 1);
+      }
     }
 
     heliosCircle.onClick = function(event) {
