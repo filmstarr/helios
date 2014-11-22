@@ -246,10 +246,10 @@
       //The green level is determined by how far we are through the sunset
       var green = 1- ((heliosCircle.position.y + sunsetProximity - horizonYCoordinate) / sunsetProximity);
       
-      //Clip to 0.6 -> 1
+      //Clip to 0.4 -> 1
       green = green > 1 ? 1 : green;
       green = green < 0 ? 0 : green;
-      green = 0.4 * (((1/0.4)-1) + green);
+      green = 0.6 * (((1/0.6)-1) + green);
       
       //Set
       heliosCircle.fillColor.gradient.stops[1].color = new Color(1, green, 0);
