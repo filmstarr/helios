@@ -201,7 +201,7 @@
     var heliosCircle = new Path.Circle(-(glow + 1), 0, glow);
     heliosCircle.fillColor = {
         gradient: {
-            stops: [['white', radius/glow], ['yellow', radius / glow], [new RgbColor(1, 1, 1, 0.2), 0.5], [new RgbColor(1, 1, 1, 0.0), 1]],
+            stops: [['white', radius/glow], ['yellow', radius/glow], [new RgbColor(1, 1, 1, 0.2), 0.5], [new RgbColor(1, 1, 1, 0.0), 1]],
             radial: true
         },
         origin: heliosCircle.position,
@@ -226,6 +226,7 @@
           horizonYCoordinate = newHorizon;
           clip(horizonYCoordinate);
         }
+        sunset();
         previousRequest = date;
       }
     }
@@ -238,6 +239,22 @@
       group.clipped = true;
     }
 
+    function sunset() {
+      //How close to the horizon do we want the sunset to kick in
+      var sunsetProximity = 2 * radius;
+
+      //The green level is determined by how far we are through the sunset
+      var green = 1- ((heliosCircle.position.y + sunsetProximity - horizonYCoordinate) / sunsetProximity);
+      
+      //Clip to 0.6 -> 1
+      green = green > 1 ? 1 : green;
+      green = green < 0 ? 0 : green;
+      green = 0.4 * (((1/0.4)-1) + green);
+      
+      //Set
+      heliosCircle.fillColor.gradient.stops[1].color = new Color(1, green, 0);
+    }
+
     heliosCircle.onClick = function(event) {
       framesPerSecond = framesPerSecond == 1 ? 600 : 1;
     }
@@ -247,7 +264,7 @@
 </head>
 
 <body style="margin: 0;">
-	<canvas id="canvas" resize style="display: none; background-color: lightsteelblue;"></canvas>
+	<canvas id="canvas" resize style="display: none;"></canvas>
 </body>
 
 </html>
