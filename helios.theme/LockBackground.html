@@ -197,6 +197,7 @@
     var framesPerSecond = 1;
     var horizonYCoordinate = 0;
     var previousRequest = new Date(1970, 1, 1, 0, 0, 0, 0);
+    var modifiedAnimationDuration = 0;
 
     //Our main helios circle
     var heliosCircle = new Path.Circle(-(glow + 1), 0, glow);
@@ -224,8 +225,8 @@
       if (date - previousRequest >= 1000 / framesPerSecond) {
         var timeFraction = altimeter.FractionalTime(date);
         //Run the animation faster
-        if (framesPerSecond != 1) {
-          timeFraction = (date.getMilliseconds() + ((date.getSeconds() % 10) * 1000)) / (1000 * 10);
+        if (modifiedAnimationDuration != 0) {
+          timeFraction = (date.getMilliseconds() + ((date.getSeconds() % modifiedAnimationDuration) * 1000)) / (1000 * modifiedAnimationDuration);
         }
         heliosCircle.position.x = heliosOutline.position.x = xBuffer + (xSize * timeFraction);
         heliosCircle.position.y = heliosOutline.position.y = yBuffer + altimeter.Altitude(timeFraction);
@@ -256,12 +257,15 @@
       var green = 1- ((heliosCircle.position.y + sunsetProximity - horizonYCoordinate) / sunsetProximity);
       
       //Clip to 0.4 -> 1
-      green = green > 1 ? 1 : green;
-      green = green < 0 ? 0 : green;
+      green = Math.max(Math.min(green,1),0);
       green = 0.6 * (((1/0.6)-1) + green);
-      
+
+      //Add twilight once the sun is below the horizon
+      var twilight = (heliosCircle.position.y - horizonYCoordinate) / (3 * radius);
+      twilight = Math.max(Math.min(twilight,1),0);
+
       //Set
-      heliosCircle.fillColor.gradient.stops[1].color = new Color(1, green, 0);
+      heliosCircle.fillColor.gradient.stops[1].color = new Color(1 - twilight, Math.max(green - twilight, 0), 0.2 * twilight);
     }
 
     //Use second object to create wrapping effect
@@ -280,7 +284,9 @@
     }
 
     heliosCircle.onClick = function(event) {
-      framesPerSecond = framesPerSecond == 1 ? 600 : 1;
+      modifiedAnimationDuration = modifiedAnimationDuration == 30 ? 50 : modifiedAnimationDuration;
+      modifiedAnimationDuration = (modifiedAnimationDuration + 10) % 70;
+      framesPerSecond = modifiedAnimationDuration == 0 ? 1 : 60;
     }
   }
 
