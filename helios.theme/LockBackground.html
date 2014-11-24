@@ -28,7 +28,7 @@
   //Initialise objects
   var location = new Location();
   var sunTimes = new SunTimes(location);
-  var altimeter = new Altimeter(sunTimes);
+  var altimeter = new Altimeter(sunTimes, ySize);
   var heliosPath = new HeliosPath(altimeter, sunTimes.DegreeMidday, lineColour, xSize, yBuffer);
   var horizon = new Horizon(altimeter, sunTimes.Sunrise, lineColour, xSize, yBuffer);
   var helios = new Helios(altimeter, horizon.HorizonYCoordinate, lineColour, sunRadius, xSize, yBuffer);
@@ -105,8 +105,8 @@
       var date = (new Date()).setHours(0,0,0,0);
       if (date > previousRequest || latitude != location.Latitude || longitude != location.Longitude) {
         var times = SunCalc.getTimes(new Date(), location.Latitude, location.Longitude);
-        sunrise = times.sunrise;
-        sunset = times.sunset;
+        sunrise = times.sunrise != 'Invalid Date' ? times.sunrise : new Date(1970, 1, 1, 0, 0, 0, 0);
+        sunset = times.sunset != 'Invalid Date' ? times.sunset : new Date(1970, 1, 1, 23, 59, 59, 999);
         var midday = (secondsSinceStartOfDay(sunrise) + secondsSinceStartOfDay(sunset)) / 2;
         degreeMidday = 360 * midday / secondsInDay;
         latitude = location.Latitude;
@@ -120,7 +120,7 @@
     }
   }
 
-  function Altimeter(sunTimes) {
+  function Altimeter(sunTimes, ySize) {
     this.FractionalTime = fractionalTime;
     this.Altitude = altitude;
 
@@ -193,43 +193,50 @@
 
   function Helios(altimeter, horizon, colour, radius, xSize, yBuffer) {
     this.Update = update;
-    var glow = 100;
+    var glow = 25;
     var framesPerSecond = 1;
     var horizonYCoordinate = 0;
     var previousRequest = new Date(1970, 1, 1, 0, 0, 0, 0);
-    var modifiedAnimationDuration = 0;
+    var modifiedAnimationDuration = null;
+    var detailsText = $('#cycleTime');
+    detailsText.css('color', lineColour);
 
-    //Our main helios circle
-    var heliosCircle = new Path.Circle(-(glow + 1), 0, glow);
-    heliosCircle.fillColor = {
+    //The glow around helios
+    var heliosGlow = new Path.Circle(-((glow * 10) + 1), 0, glow);
+    heliosGlow.fillColor = {
         gradient: {
-            stops: [['white', radius/glow], ['yellow', radius/glow], [new RgbColor(1, 1, 1, 0.2), 0.5], [new RgbColor(1, 1, 1, 0.0), 1]],
+            stops: [['yellow', radius/glow], [new RgbColor(1, 1, 1, 0.0), 1.0]],
             radial: true
         },
-        origin: heliosCircle.position,
-        destination: heliosCircle.bounds.rightCenter
+        origin: heliosGlow.position,
+        destination: heliosGlow.bounds.rightCenter
     };
 
+    //Our main helios circle
+    var heliosCircle = new Path.Circle(-(glow + 1), 0, radius);
+    heliosCircle.fillColor = lineColour;
+
     //The outline for use when helios is below the horizon
-    var heliosOutline = new Path.Circle(-(radius + 1), 0, radius);
+    var heliosOutline = new Path.Circle(-(glow + 1), 0, radius);
     heliosOutline.strokeColor = 'white';
 
     //Objects for use when helios is exiting the screen
+    var wrapGlow = heliosGlow.clone();
     var wrapCircle = heliosCircle.clone();
     var wrapOutline = heliosOutline.clone();
 
     update(horizon);
 
-    function update(newHorizon) {
+    function update(newHorizon, forceUpdate) {
       var date = new Date();
-      if (date - previousRequest >= 1000 / framesPerSecond) {
+      if (date - previousRequest >= 1000 / framesPerSecond || forceUpdate) {
         var timeFraction = altimeter.FractionalTime(date);
         //Run the animation faster
-        if (modifiedAnimationDuration != 0) {
+        if (modifiedAnimationDuration) {
           timeFraction = (date.getMilliseconds() + ((date.getSeconds() % modifiedAnimationDuration) * 1000)) / (1000 * modifiedAnimationDuration);
         }
-        heliosCircle.position.x = heliosOutline.position.x = xBuffer + (xSize * timeFraction);
-        heliosCircle.position.y = heliosOutline.position.y = yBuffer + altimeter.Altitude(timeFraction);
+        heliosCircle.position.x = heliosGlow.position.x = heliosOutline.position.x = xBuffer + (xSize * timeFraction);
+        heliosCircle.position.y = heliosGlow.position.y = heliosOutline.position.y = yBuffer + altimeter.Altitude(timeFraction);
 
         if (newHorizon != horizonYCoordinate || !horizonYCoordinate) {
           horizonYCoordinate = newHorizon;
@@ -245,7 +252,7 @@
       var from = new Point(0, 0);
       var to = new Point(xSize, horizonYCoordinate);
       var aboveHorizon = new Path.Rectangle(from, to);
-      var group = new Group(aboveHorizon,heliosCircle,wrapCircle);
+      var group = new Group(aboveHorizon, heliosGlow, heliosCircle, wrapGlow, wrapCircle);
       group.clipped = true;
     }
 
@@ -261,32 +268,60 @@
       green = 0.6 * (((1/0.6)-1) + green);
 
       //Add twilight once the sun is below the horizon
-      var twilight = (heliosCircle.position.y - horizonYCoordinate) / (3 * radius);
+      var twilight = (heliosCircle.position.y - horizonYCoordinate) / (2 * radius);
       twilight = Math.max(Math.min(twilight,1),0);
 
       //Set
-      heliosCircle.fillColor.gradient.stops[1].color = new Color(1 - twilight, Math.max(green - twilight, 0), 0.2 * twilight);
+      heliosGlow.fillColor.gradient.stops[0].color = new Color(1 - twilight, Math.max(green - twilight, 0), 0.2 * twilight);
+
+      //Size
+      var growFactor = Math.abs((heliosCircle.position.y - (horizonYCoordinate + radius)) / (3 * radius));
+      growFactor = 1 - Math.min(growFactor,1);
+      var relativeScale = (1 + (1 * growFactor)) * (glow / (heliosGlow.bounds.width / 2));
+      heliosGlow.scale(relativeScale);
+      wrapGlow.scale(relativeScale);
     }
 
     //Use second object to create wrapping effect
     function wrapHelios() {
-      if (heliosCircle.position.x + glow > xBuffer + xSize) {
-        wrapCircle.position.x = wrapOutline.position.x = heliosCircle.position.x - (xBuffer + xSize);
-        wrapCircle.position.y = wrapOutline.position.y = heliosCircle.position.y;
-        wrapCircle.fillColor.gradient.stops[1].color = heliosCircle.fillColor.gradient.stops[1].color;
-      } else if (heliosCircle.position.x < glow) {
-        wrapCircle.position.x = wrapOutline.position.x = heliosCircle.position.x + (xBuffer + xSize);
-        wrapCircle.position.y = wrapOutline.position.y = heliosCircle.position.y;
-        wrapCircle.fillColor.gradient.stops[1].color = heliosCircle.fillColor.gradient.stops[1].color;
+      if (heliosCircle.position.x + (heliosGlow.bounds.width / 2) > xBuffer + xSize) {
+        wrapCircle.position.x = wrapOutline.position.x = wrapGlow.position.x = heliosCircle.position.x - (xBuffer + xSize);
+        wrapCircle.position.y = wrapOutline.position.y = wrapGlow.position.y = heliosCircle.position.y;
+        wrapGlow.fillColor.gradient.stops[0].color = heliosGlow.fillColor.gradient.stops[0].color;
+      } else if (heliosCircle.position.x < (heliosGlow.bounds.width / 2)) {
+        wrapCircle.position.x = wrapOutline.position.x = wrapGlow.position.x = heliosCircle.position.x + (xBuffer + xSize);
+        wrapCircle.position.y = wrapOutline.position.y = wrapGlow.position.y = heliosCircle.position.y;
+        wrapGlow.fillColor.gradient.stops[0].color = heliosGlow.fillColor.gradient.stops[0].color;
       } else {
-        wrapCircle.position.x = wrapOutline.position.x = -(glow + 1);
+        wrapCircle.position.x = wrapOutline.position.x = wrapGlow.position.x = -((glow * 10) + 1);
       }
     }
 
-    heliosCircle.onClick = function(event) {
-      modifiedAnimationDuration = modifiedAnimationDuration == 30 ? 50 : modifiedAnimationDuration;
-      modifiedAnimationDuration = (modifiedAnimationDuration + 10) % 70;
-      framesPerSecond = modifiedAnimationDuration == 0 ? 1 : 60;
+    heliosCircle.onClick = heliosGlow.onClick = wrapCircle.onClick = wrapGlow.onClick = function(event) {
+      //Increment the animation cycle time as follows (null means default 1 day behaviour)
+      if (!modifiedAnimationDuration) {
+        modifiedAnimationDuration = 10;
+      } else if (modifiedAnimationDuration == 10) {
+        modifiedAnimationDuration = 30;
+      } else if (modifiedAnimationDuration == 30) {
+        modifiedAnimationDuration = 60;
+      } else if (modifiedAnimationDuration == 60) {
+        modifiedAnimationDuration = null;
+      }
+
+      //If we're running the animation faster then set the frames per second to 60
+      framesPerSecond = modifiedAnimationDuration ? 60 : 1;
+
+      //Show some details
+      if (modifiedAnimationDuration) {
+        detailsText.show();
+        detailsText.html(modifiedAnimationDuration + 's solar cycle');
+        detailsText.css('top', (yBuffer + altimeter.Altitude(1) + radius) + 'px');
+      } else {
+        detailsText.hide();
+      }
+
+      update(horizonYCoordinate, true);
     }
   }
 
@@ -294,7 +329,8 @@
 </head>
 
 <body style="margin: 0;">
-	<canvas id="canvas" resize style="display: none;"></canvas>
+  <canvas id="canvas" resize style="display: none;"></canvas>
+  <h6 id="cycleTime" style="font-weight: normal; position: absolute; right: 1px; margin: 0; font-family: verdana,helvetica,arial,sans-serif;"></h6>
 </body>
 
 </html>
