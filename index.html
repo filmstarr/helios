@@ -35,11 +35,7 @@
 <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="images/iPhone_8__iPhone_7__iPhone_6s__iPhone_6__4.7__iPhone_SE_portrait.png">
 <link rel="apple-touch-startup-image" media="screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="images/4__iPhone_SE__iPod_touch_5th_generation_and_later_portrait.png">
 <title>helios</title>
-<script type="module">
-  import 'https://cdn.jsdelivr.net/npm/@pwabuilder/pwaupdate';
-  const el = document.createElement('pwa-update');
-  document.body.appendChild(el);
-</script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@pwabuilder/pwaupdate"></script>
 <script type="text/javascript" src="scripts\jquery-2.1.1.min.js"></script>
 <script type="text/javascript" src="scripts\jquery-ui.min.js"></script>
 <script type="text/javascript" src="scripts\paper-full.min.js"></script>
@@ -365,6 +361,7 @@
 <body style="margin: 0; background-color: lightslategray;">
   <canvas id="canvas" resize style="display: none;"></canvas>
   <h6 id="cycleTime" style="font-weight: normal; position: absolute; right: 1px; margin: 0; font-family: verdana,helvetica,arial,sans-serif;"></h6>
+  <pwa-update swpath="https://filmstarr.github.io/helios/pwabuilder-sw.js"></pwa-update>
 </body>
 
 </html>
