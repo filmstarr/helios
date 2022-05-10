@@ -1,0 +1,22 @@
+{
+  "background_color": "#ffffff",
+  "description": "helios sun clock",
+  "dir": "ltr",
+  "display": "fullscreen",
+  "name": "helios",
+  "orientation": "portrait",
+  "scope": "https://filmstarr.github.io/helios/",
+  "short_name": "helios",
+  "start_url": "https://filmstarr.github.io/helios/",
+  "theme_color": "#778899",
+  "categories": [],
+  "screenshots": [],
+  "icons": [
+    {
+      "src": "images/icon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "shortcuts": []
+}
