@@ -19,9 +19,9 @@
   //Define parameters
   var sunRadius = 10;
   var xBuffer = 0;
-  var yBuffer = 240 + 1 + sunRadius;
   var xSize = ((window.innerWidth > 0) ? window.innerWidth : screen.width) - (2 * xBuffer);
   var ySize = 200;
+  var yBuffer = Math.max(((window.innerHeight - ySize) / 2), 1 + sunRadius);
   var lineColour = 'white';
 
 
