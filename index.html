@@ -98,20 +98,29 @@
 
       if (requiresUpdate){
         console.log('Requesting location...');
-        $.ajax({
-          url: 'http://freegeoip.net/json/', 
-          type: 'POST', 
-          dataType: 'jsonp',
-          success: function(location) {
-            latitude = location.latitude;
-            longitude = location.longitude;
-            localStorage.latitude = latitude;
-            localStorage.longitude = longitude;
-            localStorage.locationAsOf = new Date();
-            callback();
-            console.log('Location retrieved (latitude: ' + latitude + ', longitude: ' + longitude + ').');
-          }
-        });
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            function(location) {
+              latitude = location.coords.latitude;
+              longitude = location.coords.longitude;
+              localStorage.latitude = latitude;
+              localStorage.longitude = longitude;
+              localStorage.locationAsOf = new Date();
+              callback();
+              console.log('Location retrieved (latitude: ' + latitude + ', longitude: ' + longitude + ')');
+            }, 
+            function (error) {
+              console.log('Unable to retrieve location: ' + error.message);
+            },
+          { 
+              enableHighAccuracy: false, 
+              timeout: 15000, 
+              maximumAge: 0 
+          } );
+        } else {
+          console.log('Unable to retrieve location: Unavailable');
+        }
       }
     }
   }
